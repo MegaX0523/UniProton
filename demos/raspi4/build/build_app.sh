@@ -2,8 +2,8 @@ export TOOLCHAIN_PATH=/opt/buildtools/gcc-arm-10.3-2021.07-x86_64-aarch64-none-e
 export APP=raspi4
 export TMP_DIR=$APP
 
-sh ./build_static.sh $APP
-sh ./build_openamp.sh $TOOLCHAIN_PATH
+# sh ./build_static.sh $APP
+# sh ./build_openamp.sh $TOOLCHAIN_PATH
 
 cmake -S .. -B $TMP_DIR -DAPP:STRING=$APP -DTOOLCHAIN_PATH:STRING=$TOOLCHAIN_PATH -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY
 pushd $TMP_DIR

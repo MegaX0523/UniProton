@@ -23,6 +23,7 @@
 #endif
 #include "prt_config.h"
 #include "../proxy/rpc_internal_model.h"
+#include "ctltask.h"
 
 typedef struct umt_send_msg {
         unsigned long phy_addr;
@@ -113,6 +114,7 @@ static int rpmsg_rx_tty_callback(struct rpmsg_endpoint *ept, void *data,
     rpmsg_hold_rx_buffer(ept, data);
     tty_msg->data = data;
     tty_msg->len = len;
+    rec_msg_proc(tty_msg->data, tty_msg->len);
     PRT_SemPost(tty_sem);
 
     return 0;
@@ -121,9 +123,7 @@ static int rpmsg_rx_tty_callback(struct rpmsg_endpoint *ept, void *data,
 static void *rpmsg_tty_task(void *arg)
 {
     int ret;
-#ifndef LOSCFG_SHELL_MICA_INPUT
     char tx_buff[512];
-#endif
     char *tty_data;
 
     ret = PRT_SemCreate(0, &tty_sem);
@@ -159,9 +159,11 @@ static void *rpmsg_tty_task(void *arg)
                     }
                 }
             #else
-                ret = snprintf(tx_buff, 512, "Hello, UniProton! Recv: %s\r\n", tty_data);
-                rpmsg_send(&tty_ept, tx_buff, ret);
+                // ret = snprintf(tx_buff, 512, "Hello, UniProton! Recv: %s\r\n", tty_data);
+                // ret = snprintf(tx_buff, 512, "Hello, UniProton! Recv: %s\r\n", tty_data);
+                // rpmsg_send(&tty_ept, tx_buff, ret);
             #endif
+                
                 rpmsg_release_rx_buffer(&tty_ept, tty_msg.data);
 
         }
@@ -305,7 +307,8 @@ int rpmsg_service_init(void)
     ret0 = pthread_create(&rpc_thread, &attr, rpmsg_rpc_task, NULL);
     ret1 = pthread_create(&tty_thread, &attr, rpmsg_tty_task, NULL);
     ret2 = pthread_create(&listen_thread, &attr, rpmsg_listen_task, NULL);
-    ret3 = pthread_create(&umt_thread, &attr, rpmsg_umt_task, NULL);
+    // ret3 = pthread_create(&umt_thread, &attr, rpmsg_umt_task, NULL);
+    ret3 = 0;
     pthread_attr_destroy(&attr);
     if (ret0 != 0 || ret1 != 0 || ret2 != 0 || ret3 != 0) {
         /* If no rpmsg tasks, release the backend. */
@@ -324,9 +327,9 @@ int rpmsg_service_init(void)
         PRT_TaskDelay(100);
     }
 
-    while (!is_rpmsg_ept_ready(&umt_ept)) {
-        PRT_TaskDelay(100);
-    }
+    // while (!is_rpmsg_ept_ready(&umt_ept)) {
+    //     PRT_TaskDelay(100);
+    // }
 
     PRT_Printf("[openamp] ept ready\n");
 

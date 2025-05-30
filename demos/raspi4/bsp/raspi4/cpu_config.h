@@ -8,7 +8,8 @@
 #define MMU_UART_ADDR              0xFE200000ULL
 #define MMU_OPENAMP_ADDR           0x70000000ULL
 #define OPENAMP_SHM_SIZE           0x100000
-#define UART_BASE_ADDR             0xFE215040ULL
+//#define UART_BASE_ADDR             0xFE215040ULL
+#define UART_BASE_ADDR             0xFE201000ULL
 
 #define TEST_CLK_INT               30
 

@@ -42,7 +42,7 @@ extern "C" {
 
 /* ***************************** 配置定时器模块 ***************************** */
 /* 基于TICK的软件定时器裁剪开关 */
-#define OS_INCLUDE_TICK_SWTMER                          NO
+#define OS_INCLUDE_TICK_SWTMER                          YES
 /* 基于TICK的软件定时器最大个数 */
 #define OS_TICK_SWITIMER_MAX_NUM                        32
 
@@ -83,7 +83,7 @@ extern "C" {
 #define OS_INCLUDE_SEM                                  YES
 
 /* 最大支持的信号量数 */
-#define OS_SEM_MAX_SUPPORT_NUM                          10
+#define OS_SEM_MAX_SUPPORT_NUM                          20
 
 /* ***************************** 配置队列模块 ******************************* */
 /* 队列模块裁剪开关 */

@@ -1,0 +1,10 @@
+{
+    "files.associations": {
+        "*.dts": "c",
+        "rpmsg_backend.h": "c",
+        "prt_timer.h": "c",
+        "rpc_internal_model.h": "c",
+        "cstring": "c",
+        "variant": "c"
+    }
+}
