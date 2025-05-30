@@ -42,11 +42,13 @@ void ControlTaskEntry()
     timer_init();
     FilterInit();
     SPI0_Init();
-    SPI0_TransferBuffer(txbuff, rxbuff, 4); // ³õÊ¼»¯SPI´«Êä
+    GPIO_init(CONVST_PIN, GPIO_OUTPUT); // Initialize CONVST pin as output
+
+
     task_flag = 0;
     while (1)
     {
-        PRT_SemPend(taskstart_sem, 5000);
+        PRT_SemPend(taskstart_sem, OS_WAIT_FOREVER);
         if (task_flag)
         {
             // spi0_transfer(SPI0_CE0, dummy, rxbuff, 4);
@@ -96,10 +98,12 @@ int rec_msg_proc(void *data, int len)
     case MSG_CONTROL_START:
         task_flag = 1;
         PRT_TimerStart(0, spitmierID);
+        set_gpio(CONVST_PIN, 1); // Set CONVST high to prepare for conversion
         break;
     case MSG_CONTROL_STOP:
         PRT_TimerStop(0, spitmierID);
         task_flag = 0;
+        set_gpio(CONVST_PIN, 0); // Set CONVST low to stop conversion
         break;
     case MSG_CONTROL_EXIT:
         PRT_TimerStop(0, spitmierID);

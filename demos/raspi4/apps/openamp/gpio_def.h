@@ -14,9 +14,19 @@
 #define GPSET0 *(volatile uint32_t *)(GPIO_BASE + 0x1C)   // GPIOÉèÖÃ¼Ä´æÆ÷0
 #define GPCLR0 *(volatile uint32_t *)(GPIO_BASE + 0x28)   // GPIOÇå³ý¼Ä´æÆ÷0
 
+#define SPI0_CE1 7   // GPIO7
+#define SPI0_CE0 8   // GPIO8
+#define SPI0_MISO 9  // GPIO9
+#define SPI0_MOSI 10 // GPIO10
+#define SPI0_SCLK 11 // GPIO11
+#define CONVST_PIN  17    // Conversion start pin
+#define RESET_PIN   18    // Reset pin
+#define BUSY_PIN    27    // Busy signal pin
+
+
 // GPIO pin modes
 #define GPIO_INPUT  0b000
-#define GPIO_OUTPUT 0b001
+#define GPIO_OUTPUT 0b001   // Output mode, default low
 #define GPIO_ALT0   0b100
 #define GPIO_ALT1   0b101
 #define GPIO_ALT2   0b110

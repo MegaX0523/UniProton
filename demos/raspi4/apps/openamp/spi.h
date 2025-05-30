@@ -18,11 +18,6 @@ typedef struct
 #define SPI0 ((SPI0_Registers *)SPI0_BASE)
 
 // GPIO引脚定义
-#define SPI0_CE1 7   // GPIO7
-#define SPI0_CE0 8   // GPIO8
-#define SPI0_MISO 9  // GPIO9
-#define SPI0_MOSI 10 // GPIO10
-#define SPI0_SCLK 11 // GPIO11
 
 // SPI控制寄存器标志位
 #define SPI_CS_TA 0x00000080    // Transfer Active

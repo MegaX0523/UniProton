@@ -16,23 +16,6 @@ enum TYPE
 #define BUFF_LEN 100
 #define MSG_FORMAT "%d %d %lf %lf\r\n"
 
-// enum CMD
-// {
-//     CMD_START = 0,
-//     CMD_STOP,
-//     CMD_EXIT,
-// };
-// struct prvmsg
-// {
-//     unsigned char type;
-//     unsigned char cmd;
-//     unsigned int size;
-//     double data0;
-//     double data1;
-// };
-// #define LEN_OF_MSG sizeof(struct prvmsg)
-
-
 
 void ControlTaskEntry();
 int rec_msg_proc(void *data, int len);
