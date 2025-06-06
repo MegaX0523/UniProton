@@ -5,6 +5,7 @@
         "prt_timer.h": "c",
         "rpc_internal_model.h": "c",
         "cstring": "c",
-        "variant": "c"
+        "variant": "c",
+        "gpio_def.h": "c"
     }
 }
