@@ -2,6 +2,11 @@
 #include "gpio_def.h"
 #include "spi.h"
 
+void AD7606_Init(void);
+void AD7606_StartConversion(void);
+int16_t AD7606_ReadChannel(uint8_t channel);
+int8_t AD7606_ReadAllChannels(uint8_t* data);
+
 // Initialize AD7606
 void AD7606_Init(void)
 {
@@ -28,7 +33,7 @@ void AD7606_StartConversion(void)
 {
     GPIO_SET(AD7606_CONVST_PIN, GPIO_LEVEL_LOW);  // CONVST low to start conversion
     // Small delay could be added here if needed
-    for (volatile int i = 0; i < 50; i++);  // Simple delay loop (adjust as needed)
+    for (volatile int i = 0; i < 10; i++);  // Simple delay loop (adjust as needed)
     GPIO_SET(AD7606_CONVST_PIN, GPIO_LEVEL_HIGH);  // CONVST back to high
 }
 
@@ -53,9 +58,8 @@ int16_t AD7606_ReadChannel(uint8_t channel)
 // Read all channels at once
 int8_t AD7606_ReadAllChannels(uint8_t* data)
 {
-    int i;
     int timeout = 1000;  // Timeout for BUSY signal (in case it doesn't go low)
-    static const uint8_t send_buffer[16] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+    static uint8_t send_buffer[16] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
                                              0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; // Dummy data to read all channels
     
     // Start conversion
@@ -63,7 +67,7 @@ int8_t AD7606_ReadAllChannels(uint8_t* data)
     
     // Wait for BUSY to go high then low
     // Note: In actual implementation, you might need to implement a proper way to read BUSY pin
-    for (volatile int j = 0; j < 20; j++);
+    for (volatile int j = 0; j < 10; j++);
     while (GPIO_GETVALUE(AD7606_BUSY_PIN) == GPIO_LEVEL_HIGH)  // Wait until BUSY goes low
     {
         if (timeout-- == 0) {

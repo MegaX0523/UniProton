@@ -10,6 +10,7 @@
 #define OPENAMP_SHM_SIZE           0x100000
 //#define UART_BASE_ADDR             0xFE215040ULL
 #define UART_BASE_ADDR             0xFE201000ULL
+#define UART_FR_ADDR               (*(unsigned int *)0xFE201018ULL)
 
 #define TEST_CLK_INT               30
 

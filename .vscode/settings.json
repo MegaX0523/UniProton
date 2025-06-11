@@ -6,6 +6,25 @@
         "rpc_internal_model.h": "c",
         "cstring": "c",
         "variant": "c",
-        "gpio_def.h": "c"
+        "gpio_def.h": "c",
+        "gpio.h": "c",
+        "bm_common.h": "c",
+        "sample_common.h": "c",
+        "prt_hwi.h": "c",
+        "bm_gpio.h": "c",
+        "lp_subsys.h": "c",
+        "hi309x_memmap.h": "c",
+        "test.h": "c",
+        "optional": "c",
+        "istream": "c",
+        "ostream": "c",
+        "ratio": "c",
+        "system_error": "c",
+        "array": "c",
+        "functional": "c",
+        "regex": "c",
+        "tuple": "c",
+        "type_traits": "c",
+        "utility": "c"
     }
 }

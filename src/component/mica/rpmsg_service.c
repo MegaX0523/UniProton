@@ -146,8 +146,8 @@ static void *rpmsg_tty_task(void *arg)
     while (tty_ept.addr !=  RPMSG_ADDR_ANY) {
         PRT_SemPend(tty_sem, OS_WAIT_FOREVER);
         if (tty_msg.len) {
-            tty_data = (char *)tty_msg.data;
-            tty_data[tty_msg.len] = '\0';
+            // tty_data = (char *)tty_msg.data;
+            // tty_data[tty_msg.len] = '\0';
             #ifdef LOSCFG_SHELL_MICA_INPUT
                 ShellCB *shellCb = OsGetShellCB();
                 if (shellCb == NULL) {
