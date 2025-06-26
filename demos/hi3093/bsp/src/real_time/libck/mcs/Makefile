@@ -1,1 +1,0 @@
-obj-y += mcs.o

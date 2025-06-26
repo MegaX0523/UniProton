@@ -1,1 +1,0 @@
-obj-y += osal_interrupt.o

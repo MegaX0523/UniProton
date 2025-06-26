@@ -2,28 +2,16 @@
 #define GPIO_DEF_H
 
 /*my set*/
-// 外设基地址（树莓派4B）
-#define BCM2711_PERI_BASE 0xFE000000
-#define GPIO_BASE (BCM2711_PERI_BASE + 0x200000)
-#define UART0_BASE (BCM2711_PERI_BASE + 0x201000)
-#define SPI0_BASE (BCM2711_PERI_BASE + 0x204000)
 
-#define GPFSEL0 *(volatile uint32_t *)(GPIO_BASE + 0x00) // GPIO功能选择寄存器0
-#define GPFSEL1 *(volatile uint32_t *)(GPIO_BASE + 0x04) // GPIO功能选择寄存器1
-#define GPFSEL2 *(volatile uint32_t *)(GPIO_BASE + 0x08) // GPIO功能选择寄存器2
-#define GPSET0 *(volatile uint32_t *)(GPIO_BASE + 0x1C)  // GPIO设置寄存器0
-#define GPCLR0 *(volatile uint32_t *)(GPIO_BASE + 0x28)  // GPIO清除寄存器0
-
-#define GPIO7 7
-#define GPIO8 8
-#define GPIO9 9
-#define GPIO10 10
-#define GPIO11 11
-#define GPIO17 17
-#define GPIO18 18
-#define GPIO23 23
-#define GPIO22 22
-#define GPIO27 27
+#define GPIO32 0    // 32 - 32  
+#define GPIO33 1    // 33 - 32
+#define GPIO47 15   // 47 - 32
+#define GPIO48 16   // 48 - 32
+#define GPIO49 17   // 49 - 32
+#define GPIO51 19   // 51 - 32
+#define GPIO52 20   // 52 - 32
+#define GPIO53 21   // 53 - 32
+#define GPIO54 22   // 54 - 32
 
 // GPIO pin modes
 #define GPIO_INPUT 0b000
@@ -40,23 +28,37 @@
 #define GPIO_LEVEL_LOW 0
 
 // Define GPIO pins (arbitrary assignments)
-#define SPI0_CE1 GPIO7
-#define SPI0_CE0 GPIO8
-#define SPI0_MISO GPIO9
-#define SPI0_MOSI GPIO10
-#define SPI0_SCLK GPIO11
+#define SPI0_CE1 GPIO32
+#define SPI0_CE0 GPIO33
+#define SPI0_MISO GPIO47
+#define SPI0_MOSI GPIO48
+#define SPI0_SCLK GPIO49
 
 #define AD7606_CS_PIN SPI0_CE0   // Chip Select pin for AD7606
-#define AD7606_CONVST_PIN GPIO17 // Conversion start pin
-#define AD7606_RESET_PIN GPIO18  // Reset pin
-#define AD7606_BUSY_PIN GPIO27   // Busy signal pin
+#define AD7606_CONVST_PIN GPIO51 // Conversion start pin
+#define AD7606_RESET_PIN GPIO52  // Reset pin
+#define AD7606_BUSY_PIN GPIO53   // Busy signal pin
 
 #define DAC8563_CS_PIN SPI0_CE1 // Chip Select pin for DAC8563
-#define DAC8563_SYNC_PIN GPIO22 // Sync pin for DAC8563
-#define DAC8563_LDAC_PIN GPIO23 // LDAC pin for DAC8563
+#define DAC8563_SYNC_PIN SPI0_CE1 // Sync pin for DAC8563
+#define DAC8563_LDAC_PIN GPIO54 // LDAC pin for DAC8563
 
-extern void GPIO_INIT(int pin, int mode);
-extern void GPIO_SET(int pin, int value);
-extern int GPIO_GETVALUE(int pin);
+#define GPIO_BASE_ADDR 0x0874A000
+#define GPIO0_BASE_ADDR 0x0874A000
+#define GPIO1_BASE_ADDR 0x0874B000
+#define GPIO2_BASE_ADDR 0x0874C000
+#define GPIO3_BASE_ADDR 0x0874D000
+#define GPIO4_BASE_ADDR 0x0874E000
 
+#define GPIO_OUTPUT_OFFSET_ADDR       0x0  /* OUTPUT register */
+#define GPIO_DIR_OFFSET_ADDR          0x4  /* Direction Register 0 - Input 1 - Output */
+#define GPIO_INPUT_OFFSET_ADDR        0x50 /* INPUT register */
+
+#define GPIO1_OUTPUT_REG *(volatile uint32_t*)(GPIO1_BASE_ADDR + GPIO_OUTPUT_OFFSET_ADDR)
+#define GPIO1_INPUT_REG *(volatile uint32_t*)(GPIO1_BASE_ADDR + GPIO_INPUT_OFFSET_ADDR)
+
+void GPIO_INIT(int group, int pin, int mode);
+void GPIO_SET_PIN(int pin);
+void GPIO_CLEAR_PIN(int pin);
+int GPIO_GETVALUE(int pin);
 #endif

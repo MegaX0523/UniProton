@@ -29,15 +29,11 @@ void UART_Init(int bard_rate);
 
 static void Timer_Func(TimerHandle tmrHandle, U32 arg1, U32 arg2, U32 arg3, U32 arg4)
 {
-    // if(task_flag)
-    // {
-    //     counts ++;
-    // }
     PRT_SemPost(taskstart_sem);
     return;
 }
 
-double next_sine_sample_static(void)
+static double next_sine_sample_static(void)
 {
     static double phase = 0.0;
     double value = sin(phase);
@@ -83,6 +79,7 @@ void Timer_Init(void)
     spitimer.arg1 = 0;
 
     PRT_SemCreate(0, &taskstart_sem);
+    // PRT_SemMutexCreate(&taskstart_sem);
     PRT_TimerCreate(&spitimer, &spitmierID);
     PRT_TimerStart(0, spitmierID);
 }
@@ -96,7 +93,7 @@ void ControlTaskEntry()
     U8 dummy[4] = {0x11, 0x22, 0x33, 0x44};
     U8 tx_buff[BUFF_LEN];
     int16_t AD_CH0, AD_CH1;
-    volatile double output = 0;
+    double output = 0;
     double votlage0;
     double votlage1;
     double tmp_vol = 0;
@@ -115,23 +112,28 @@ void ControlTaskEntry()
         if (task_flag)
         {
             // send_message(tx_buff, ret);
+            if (task_flag > 1)
+            {
+                SPI0_Set_CPHA1();
+                tmp_vol = next_sine_sample_static();
+                DAC8563_SetVoltage(1, 4 * tmp_vol + 5.0);
+            }
 
-            SPI0_Set_CPHA(CPHA0);
+            SPI0_Set_CPHA0();
             ret = AD7606_ReadAllChannels(AD7606_Data);
             AD_CH0 = (int16_t)((AD7606_Data[0] << 8) | AD7606_Data[1]);
             AD_CH1 = (int16_t)((AD7606_Data[2] << 8) | AD7606_Data[3]);
             votlage0 = (double)AD_CH0 * 10 / 0x7fff; // Assuming 16-bit ADC and 10.0V reference
             votlage1 = (double)AD_CH1 * 10 / 0x7fff; // Assuming 16-bit ADC and 10.0V reference
-            output = outputget(votlage0, votlage1);
-            // PRT_Printf("%.4f %.4f %.4f\r\n", votlage0, votlage1, output);
-            // tmp_vol = next_sine_sample_static();
-            PRT_Printf("$%.4f %.4f %.4f;", votlage0, votlage1, output);
-            SPI0_Set_CPHA(CPHA1);
-            if (task_flag > 1)
+
+            if (task_flag > 2)
             {
-                DAC8563_SetVoltage(0, -output + 5.0);
+                output = outputget(votlage0, votlage1);
+                SPI0_Set_CPHA1();
+                DAC8563_SetVoltage(0, (-1.0 * output) + 5.0);
             }
-            // DAC8563_SetVoltage(1, output + 5.0);
+
+            PRT_Printf("$%.4f %.4f %.4f;", votlage0, votlage1, (-1.0 * output));
         }
     }
 }
@@ -156,10 +158,13 @@ int rec_msg_proc(void *data, int len)
     switch (id)
     {
     case MSG_CONTROL_START:
-        task_flag ++;
+        if (task_flag == 0)
+        {
+            DAC8563_SetVoltage(0, 5.0);
+            DAC8563_SetVoltage(1, 5.0);
+        }
+        task_flag++;
         PRT_TimerStart(0, spitmierID);
-        DAC8563_SetVoltage(0, 5.0);
-        DAC8563_SetVoltage(1, 5.0);
         break;
     case MSG_CONTROL_STOP:
         PRT_TimerStop(0, spitmierID);

@@ -121,6 +121,16 @@ static void W_Update(StaticDeque *deque, double error)
     // pthread_mutex_unlock(&filter_mutex);
 }
 
+void W_Reset(void)
+{
+    // pthread_mutex_lock(&filter_mutex);
+    for (int i = 0; i < LMS_M; i++)
+    {
+        W[i] = 0.0; // 重置滤波器系数
+    }
+    // pthread_mutex_unlock(&filter_mutex);
+}
+
 /* 对外接口 Data1-->REF Data2-->ERR*/
 double outputget(double Data1, double Data2)
 {
@@ -151,6 +161,12 @@ double outputget(double Data1, double Data2)
     {
         sum += current->data * W[i];
         current = current->next;
+    }
+    if (sum < -10.0 || sum > 10.0)
+    {
+        sum = 0; // 限制输出范围
+        W_Reset(); // 重置系数
+        return sum; // 返回0表示重置
     }
     // pthread_mutex_unlock(&deque_mutex);
 

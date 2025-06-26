@@ -8,8 +8,8 @@
  * EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
  * See the Mulan PSL v2 for more details.
  */
-#ifndef __BM_TYPES_H__
-#define __BM_TYPES_H__
+#ifndef __TYPES_H__
+#define __TYPES_H__
 
 typedef unsigned long uintptr_t;
 

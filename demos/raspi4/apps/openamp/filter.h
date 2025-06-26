@@ -37,6 +37,7 @@ typedef struct {
 
 double outputget(double newx, double dsignal);
 void FilterInit(void);
+void W_Reset(void);
 
 #endif
 

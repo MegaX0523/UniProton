@@ -17,6 +17,7 @@ static int node_index = 0;
 
 /* 滤波器相关全局变量 */
 static double W[LMS_M] = {0};      // 滤波器系数
+static double W_sec[LMS_M] = {0};  // 次级通道参数
 static double MU_current = MU_MAX; // 步长参数
 #ifdef VSS_TransX
 static double InputArray[LMS_M]; // 输入缓存
@@ -179,5 +180,10 @@ void FilterInit(void)
         W[i] = 0;
     }
     // pthread_mutex_unlock(&filter_mutex);
+
+    for (int i = 0; i < LMS_M; i++)
+    {
+        W_sec[i] = 0; // 初始化次级通道参数
+    }
 
 }

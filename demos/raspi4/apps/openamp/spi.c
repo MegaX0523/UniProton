@@ -119,14 +119,12 @@ void SPI0_DeselectSlave(uint8_t CSx)
     }
 }
 
-void SPI0_Set_CPHA(uint8_t cpha)
+void SPI0_Set_CPHA0(void)
 {
-    if (cpha == CPHA1)
-    {
-        SPI0->CS |= SPI_CS_CPHA1; // 设置CPHA为1
-    }
-    else if (cpha == CPHA0)
-    {
-        SPI0->CS &= ~SPI_CS_CPHA1; // 设置CPHA为0
-    }
+    SPI0->CS &= ~SPI_CS_CPHA1; // 设置CPHA为0
+}
+
+void SPI0_Set_CPHA1(void)
+{
+    SPI0->CS |= SPI_CS_CPHA1; // 设置CPHA为1
 }

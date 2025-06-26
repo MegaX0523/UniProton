@@ -38,6 +38,7 @@ uint8_t SPI0_TransferByte(uint8_t CSx, uint8_t data);
 void SPI0_TransferBuffer(uint8_t CSx, uint8_t *txBuffer, uint8_t *rxBuffer, uint32_t length);
 void SPI0_SelectSlave(uint8_t slave);
 void SPI0_DeselectSlave(uint8_t CSx);
-void SPI0_Set_CPHA(uint8_t cpha);
+void SPI0_Set_CPHA0(void);
+void SPI0_Set_CPHA1(void);
 
 #endif

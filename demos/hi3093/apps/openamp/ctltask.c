@@ -1,21 +1,19 @@
+#include <math.h>
 #include "test.h"
 #include "prt_task.h"
 #include "rpmsg_backend.h"
 #include "stdio.h"
-#include "spi.h"
+#include "hi_spi.h"
 #include "prt_timer.h"
 #include "prt_sem.h"
 #include "ctltask.h"
 #include "gpio_def.h"
-#include "bm_gpio.h"
-
-#define SAMPLE_GPIO_LEVEL_GROUP 1
-#define SAMPLE_GPIO_LEVEL_PIN 1
 
 volatile double ref_signal = 0;
 volatile double err_signal = 0;
 volatile int counts = 0;
-static U8 task_flag = 0;
+static int task_flag = 0;
+// static int ctlstart_flag = 0;
 static U32 spitmierID;
 static SemHandle taskstart_sem;
 uint8_t AD7606_Data[16] = {0x0}; // Buffer to hold AD7606 data
@@ -27,6 +25,7 @@ extern struct rpmsg_endpoint tty_ept;
 extern double *InputArray;
 
 void Timer_Init(void);
+void UART_Init(int bard_rate);
 
 static void Timer_Func(TimerHandle tmrHandle, U32 arg1, U32 arg2, U32 arg3, U32 arg4)
 {
@@ -34,12 +33,26 @@ static void Timer_Func(TimerHandle tmrHandle, U32 arg1, U32 arg2, U32 arg3, U32 
     return;
 }
 
+static double next_sine_sample_static(void)
+{
+    static double phase = 0.0;
+    double value = sin(phase);
+    phase += 2 * PI * CONT_Hz / 1000.0;
+    // 归一化相位到0~2π之间，避免溢出
+    while (phase >= 2 * PI)
+    {
+        phase -= 2 * PI;
+    }
+    return value;
+}
+
+
 void Timer_Init(void)
 {
     struct TimerCreatePara spitimer = {0};
     spitimer.type = OS_TIMER_SOFTWARE;
     spitimer.mode = OS_TIMER_LOOP;
-    spitimer.interval = 1000;
+    spitimer.interval = 100; 
     spitimer.timerGroupId = 0;
     spitimer.callBackFunc = Timer_Func;
     spitimer.arg1 = 0;
@@ -58,17 +71,16 @@ void ControlTaskEntry()
     U8 dummy[4] = {0x11, 0x22, 0x33, 0x44};
     U8 tx_buff[BUFF_LEN];
     int16_t AD_CH0, AD_CH1;
-    volatile double output;
-    double votlage0 = 0.0;
-    double votlage1 = 0.0;
-    int16_t tmp_vol = 0;
+    double output = 0;
+    double votlage0 = 0;
+    double votlage1 = 0;
+    double tmp_vol = 0;
 
     Timer_Init();
     FilterInit();
-    // SPI0_Init();
-    // AD7606_Init();
-    // DAC8563_Init();
-    bm_gpio_init(SAMPLE_GPIO_LEVEL_GROUP, SAMPLE_GPIO_LEVEL_PIN);
+    SPI0_Init();
+    AD7606_Init();
+    DAC8563_Init();
 
     task_flag = 0;
     while (1)
@@ -76,41 +88,30 @@ void ControlTaskEntry()
         PRT_SemPend(taskstart_sem, OS_WAIT_FOREVER);
         if (task_flag)
         {
-            // spi0_transfer(SPI0_CE0, dummy, rxbuff, 4);
-            // output = outputget(ref_signal, err_signal);
-            // i++;
-            // ret = sprintf(tx_buff, "%d %lf %lf\n", counts, err_signal, output);
             // send_message(tx_buff, ret);
-            // SPI0_TransferBuffer(SPI0_CE1, txbuff, rxbuff, 4);
+            if (task_flag > 1)
+            {
+                static double i = 0;
+                i += 0.1;
+                tmp_vol = next_sine_sample_static();
+                // DAC8563_SetVoltage(1, 4 * tmp_vol + 5.0);
+                DAC8563_SetVoltage(1, i);
+            }
 
-            // SPI0_Set_CPHA(CPHA1);
-            // DAC8563_SetVoltage(0, tmp_vol * 0x10);
-            // DAC8563_SetVoltage(1, tmp_vol * 0x10); 
-            // if(tmp_vol++ > 0x300)
-            // {
-            //     tmp_vol = 0;
-            // }
+            ret = AD7606_ReadAllChannels(AD7606_Data);
+            AD_CH0 = (int16_t)((AD7606_Data[0] << 8) | AD7606_Data[1]);
+            AD_CH1 = (int16_t)((AD7606_Data[2] << 8) | AD7606_Data[3]);
+            votlage0 = (double)AD_CH0 * 10 / 0x7fff; // Assuming 16-bit ADC and 10.0V reference
+            votlage1 = (double)AD_CH1 * 10 / 0x7fff; // Assuming 16-bit ADC and 10.0V reference
 
-            // SPI0_Set_CPHA(CPHA0);
-            // ret = AD7606_ReadAllChannels(AD7606_Data);
-            // AD_CH0 = (int16_t)((AD7606_Data[0] << 8) | AD7606_Data[1]);
-            // AD_CH1 = (int16_t)((AD7606_Data[2] << 8) | AD7606_Data[3]);
-            // votlage0 = (double)AD_CH0 * 10 / 0x7fff; // Assuming 16-bit ADC and 10.0V reference
-            // votlage1 = (double)AD_CH1 * 10 / 0x7fff; // Assuming 16-bit ADC and 10.0V reference
-            // ret = sprintf(tx_buff, "AD7606 Data: CH0= (%.4fV), CH1= (%.4fV)\r\n", votlage0, votlage1);
-            // PRT_Printf("%s", tx_buff);
-            // if (ret < 0)
-            // {
-            //     PRT_Printf("AD7606_ReadAllChannels failed\n");
-            // }
-            // else
-            // {
-            // }
+            if (task_flag > 2)
+            {
+                output = outputget(votlage0, votlage1);
+                // DAC8563_SetVoltage(0, (-1.0 * output) + 5.0);
+                DAC8563_SetVoltage(1, i);
+            }
 
-            bm_gpio_set_level(SAMPLE_GPIO_LEVEL_GROUP, SAMPLE_GPIO_LEVEL_PIN, i);
-            i = (i + 1) % 2; // Toggle between 0 and 1
-            // bm_gpio_get_level(SAMPLE_GPIO_LEVEL_GROUP, SAMPLE_GPIO_LEVEL_PIN, &ret);
-            // PRT_Printf("GPIO Group %d, Pin %d, Level: %d\n", SAMPLE_GPIO_LEVEL_GROUP, SAMPLE_GPIO_LEVEL_PIN, ret);
+            // PRT_Printf("$%.4f %.4f %.4f;", votlage0, votlage1, (-1.0 * output));
         }
     }
 }
@@ -123,6 +124,7 @@ int rec_msg_proc(void *data, int len)
     int count;
     double data1;
     double data2;
+    // PRT_Printf("rec_msg_proc: %s\n\0", (char *)data);
     memcpy(tx_buff, data, len);
     tx_buff[len] = '\0';
     ret = sscanf(tx_buff, MSG_FORMAT, &id, &count, &data1, &data2);
@@ -130,20 +132,29 @@ int rec_msg_proc(void *data, int len)
     {
         return -1;
     }
-    PRT_Printf("rec_msg_proc: id=%d, count=%d, data1=%lf, data2=%lf\n", id, count, data1, data2);
+    // PRT_Printf("rec_msg_proc: id=%d, count=%d, data1=%lf, data2=%lf\n", id, count, data1, data2);
     switch (id)
     {
     case MSG_CONTROL_START:
-        task_flag = 1;
+        if (task_flag == 0)
+        {
+            DAC8563_SetVoltage(0, 5.0);
+            DAC8563_SetVoltage(1, 5.0);
+        }
+        task_flag++;
         PRT_TimerStart(0, spitmierID);
         break;
     case MSG_CONTROL_STOP:
         PRT_TimerStop(0, spitmierID);
+        DAC8563_SetVoltage(0, 0.0);
+        DAC8563_SetVoltage(1, 0.0);
         task_flag = 0;
         break;
     case MSG_CONTROL_EXIT:
         PRT_TimerStop(0, spitmierID);
         task_flag = 0;
+        DAC8563_SetVoltage(0, 0.0);
+        DAC8563_SetVoltage(1, 0.0);
         clear_env();
         return 1;
     case MSG_INPUTDATA:
@@ -163,5 +174,5 @@ void clear_env()
     PRT_TimerDelete(0, spitmierID);
     PRT_SemDelete(taskstart_sem);
     PRT_TaskDelete(g_CtlTskHandel);
-    // rpmsg_backend_remove();
+    rpmsg_backend_remove();
 }

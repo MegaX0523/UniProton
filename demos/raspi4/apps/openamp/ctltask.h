@@ -14,7 +14,8 @@ enum TYPE
 };
 
 #define BUFF_LEN 100
-#define PI 3.14159
+#define PI 3.141592653
+// #define CONT_Hz 13.67
 #define CONT_Hz 66.02
 #define MSG_FORMAT "%d %d %lf %lf\r\n"
 
