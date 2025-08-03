@@ -8,6 +8,7 @@
 #include "prt_sem.h"
 #include "ctltask.h"
 #include "gpio_def.h"
+#include "rpmsg_protocol.h"
 
 volatile double ref_signal = 0;
 volatile double err_signal = 0;
@@ -21,7 +22,6 @@ uint8_t AD7606_Data[16] = {0x0}; // Buffer to hold AD7606 data
 
 extern TskHandle g_testTskHandle;
 extern TskHandle g_CtlTskHandel;
-extern struct rpmsg_endpoint tty_ept;
 extern double *InputArray;
 
 void Timer_Init(void);
@@ -46,13 +46,12 @@ static double next_sine_sample_static(void)
     return value;
 }
 
-
 void Timer_Init(void)
 {
     struct TimerCreatePara spitimer = {0};
     spitimer.type = OS_TIMER_SOFTWARE;
     spitimer.mode = OS_TIMER_LOOP;
-    spitimer.interval = 100; 
+    spitimer.interval = 1;
     spitimer.timerGroupId = 0;
     spitimer.callBackFunc = Timer_Func;
     spitimer.arg1 = 0;
@@ -118,51 +117,69 @@ void ControlTaskEntry()
 
 int rec_msg_proc(void *data, int len)
 {
-    char tx_buff[BUFF_LEN];
-    int ret;
-    int id;
-    int count;
-    double data1;
-    double data2;
-    // PRT_Printf("rec_msg_proc: %s\n\0", (char *)data);
-    memcpy(tx_buff, data, len);
-    tx_buff[len] = '\0';
-    ret = sscanf(tx_buff, MSG_FORMAT, &id, &count, &data1, &data2);
-    if (ret != 4)
+    static int array[200];
+    rpmsg_packet *packet = (rpmsg_packet *)data;
+
+    // 解析数据包（注意边界检查）
+    // 1. 检查最小长度（消息类型）
+    if (len < sizeof(uint16_t))
     {
+        PRT_Printf("Invalid packet: too short");
         return -1;
     }
-    // PRT_Printf("rec_msg_proc: id=%d, count=%d, data1=%lf, data2=%lf\n", id, count, data1, data2);
-    switch (id)
+    // 2. 解析消息类型
+    switch (packet->msg_type)
     {
-    case MSG_CONTROL_START:
-        if (task_flag == 0)
+    case MSG_COMMAND:
+        if (len >= sizeof(uint16_t) + sizeof(uint16_t))
         {
-            DAC8563_SetVoltage(0, 5.0);
-            DAC8563_SetVoltage(1, 5.0);
+            PRT_Printf("Received command: 0x%02X, len = %d\n", packet->payload.command, len);
         }
-        task_flag++;
-        PRT_TimerStart(0, spitmierID);
+        if (packet->payload.command == START_DAMPING)
+        {
+            PRT_Printf("Sending array.\n", packet->payload.command);
+
+            rpmsg_packet pkt = {
+                .msg_type = MSG_SENSOR_ARRAY};
+            for (uint16_t i = 0; i < SENSOR_ARRAY_SIZE; i++)
+            {
+                pkt.payload.array[i] = i; // 示例数据
+                if ((pkt.payload.array[i] & 0xFF00) == 0x0A00)
+                {
+                    pkt.payload.array[i] = i - 1;
+                }
+                if ((pkt.payload.array[i] & 0x00FF) == 0x000A)
+                {
+                    pkt.payload.array[i] = i - 1;
+                }
+            }
+            PRT_Printf("msg_type: %d\n", pkt.msg_type);
+            PRT_Printf("%d,%d,%d,%d\n", pkt.payload.array[8], pkt.payload.array[9], pkt.payload.array[10], pkt.payload.array[11]);
+            send_message(((uint8_t *)&pkt), sizeof(pkt.msg_type) + sizeof(SensorArray));
+            for (int i = 0; i < sizeof(pkt); i++)
+            {
+                PRT_Printf("%02X ", ((uint8_t *)&pkt)[i]);
+                if ((i + 1) % 16 == 0)
+                    PRT_Printf("\n");
+            }
+        }
         break;
-    case MSG_CONTROL_STOP:
-        PRT_TimerStop(0, spitmierID);
-        DAC8563_SetVoltage(0, 0.0);
-        DAC8563_SetVoltage(1, 0.0);
-        task_flag = 0;
+
+    case MSG_SET_PARAM:
+        if (len >= sizeof(uint16_t) + sizeof(ParamPayload))
+        {
+            PRT_Printf("Received param: id=0x%02X, value=%.2f, len=%d\n",
+                       packet->payload.param.param_id,
+                       packet->payload.param.param_value,
+                       len);
+        }
         break;
-    case MSG_CONTROL_EXIT:
-        PRT_TimerStop(0, spitmierID);
-        task_flag = 0;
-        DAC8563_SetVoltage(0, 0.0);
-        DAC8563_SetVoltage(1, 0.0);
-        clear_env();
-        return 1;
-    case MSG_INPUTDATA:
-        ref_signal = data1;
-        err_signal = data2;
-        counts = count;
+    case MSG_SENSOR_ARRAY:
+
         break;
+
     default:
+        PRT_Printf("Unknown message type: 0x%02X\n", packet->msg_type);
         break;
     }
     return 0;

@@ -1,1 +1,2 @@
 add_subdirectory(openamp)
+add_subdirectory(rpmsg)

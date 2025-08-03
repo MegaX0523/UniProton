@@ -9,7 +9,7 @@ typedef U32 (*PrintFunc)(const char *format, va_list vaList);
 void uart_poll_send(unsigned char ch)
 {
     // volatile int time = 100000;
-    volatile int time = 10;
+    volatile int time = 20;
     *(unsigned int *)UART_BASE_ADDR = ch;
     while (UART_FR_ADDR & 0x20) {
         time--;

@@ -24,7 +24,7 @@ void SPI0_Init(void)
     // SPI0->CS = SPI_CS_CPOL0 | SPI_CS_CPHA0;
     SPI0->CS = SPI_CS_CPOL0 | SPI_CS_CPHA1;
     // 设置时钟分频器 (假设设置为250MHz/32=7.8MHz)
-    SPI0->CLK = 32;
+    SPI0->CLK = 640;
     SPI0_SelectSlave(SPI_CS_CS0); // 选择片选0
 }
 

@@ -67,7 +67,14 @@ void spi0_DA_transfer(const uint8_t *tx_buf, size_t length)
         for (bit_idx = 7; bit_idx >= 0; bit_idx--)
         {
             // 设置MOSI（在时钟上升前准备数据）
-            (tx_byte & (1 << bit_idx)) ? SPI0_MOSI_HIGH : SPI0_MOSI_LOW;
+            if(tx_byte & (1 << bit_idx))
+            {
+                SPI0_MOSI_HIGH; // 发送1
+            }
+            else
+            {
+                SPI0_MOSI_LOW; // 发送0
+            }
             // 时钟上升沿（从机在此刻改变输出）
             SPI0_SCK_HIGH;
             // 时钟下降沿（从机采样输入）

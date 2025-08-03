@@ -11,6 +11,7 @@
 #include <stdbool.h>
 
 #define LMS_M 16
+#define S_PATH_M 8
 #define ALPHA 0.01
 #define MU_MAX 0.01
 #define MAX_DEQUE_SIZE (LMS_M * 2)  // 双倍长度保证滤波器需求
@@ -36,6 +37,7 @@ typedef struct {
 } StaticDeque;
 
 double outputget(double newx, double dsignal);
+double output_s_get(double input, double Data2);
 void FilterInit(void);
 void W_Reset(void);
 

@@ -37,12 +37,14 @@ void DAC8563_Init(void)
 
 void DAC8563_Write(uint8_t cmd, uint16_t data)
 {
-    static uint8_t transferdata[3];
-    static uint8_t receivedata[3];
+    uint8_t transferdata[3];
+    uint8_t receivedata[3];
     transferdata[0] = cmd; // Command byte
     transferdata[1] = (data >> 8) & 0xFF; // High byte of data
     transferdata[2] = data & 0xFF; // Low byte of data
+    GPIO_SET(DAC8563_SYNC_PIN, 0);
     SPI0_TransferBuffer(DAC8563_CS_PIN, transferdata, receivedata, 3);
+    GPIO_SET(DAC8563_SYNC_PIN, 1);
 }
 
 void DAC8563_SetVoltage(uint8_t channel, double voltage)

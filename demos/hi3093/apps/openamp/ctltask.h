@@ -28,7 +28,7 @@ enum TYPE
 
 void ControlTaskEntry();
 int rec_msg_proc(void *data, int len);
-extern int send_message(unsigned char *message, int len);
+// extern int send_message(unsigned char *message, int len);
 extern void AD7606_Init(void);
 extern void AD7606_StartConversion(void);
 extern int8_t AD7606_ReadAllChannels(uint8_t* data);

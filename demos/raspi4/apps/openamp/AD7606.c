@@ -67,7 +67,6 @@ int8_t AD7606_ReadAllChannels(uint8_t* data)
     
     // Wait for BUSY to go high then low
     // Note: In actual implementation, you might need to implement a proper way to read BUSY pin
-    for (volatile int j = 0; j < 10; j++);
     while (GPIO_GETVALUE(AD7606_BUSY_PIN) == GPIO_LEVEL_HIGH)  // Wait until BUSY goes low
     {
         if (timeout-- == 0) {

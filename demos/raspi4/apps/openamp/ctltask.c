@@ -1,4 +1,6 @@
 #include <math.h>
+#include <stdlib.h>
+#include <time.h>
 #include "test.h"
 #include "prt_task.h"
 #include "rpmsg_backend.h"
@@ -24,8 +26,8 @@ extern TskHandle g_CtlTskHandel;
 extern struct rpmsg_endpoint tty_ept;
 extern double *InputArray;
 
-void Timer_Init(void);
-void UART_Init(int bard_rate);
+// void Timer_Init(void);
+// void UART_Init(int bard_rate);
 
 static void Timer_Func(TimerHandle tmrHandle, U32 arg1, U32 arg2, U32 arg3, U32 arg4)
 {
@@ -46,7 +48,13 @@ static double next_sine_sample_static(void)
     return value;
 }
 
-void UART_Init(int bard_rate)
+static double getrandom_double(void)
+{
+    // 生成一个在[min, max]范围内的随机浮点数
+    return ((double)rand() / RAND_MAX * 2 - 1);
+}
+
+static void UART_Init(int bard_rate)
 {
     // Set the UART control register to disable the UART
     UART_CR_ADDR = 0x00;
@@ -68,7 +76,7 @@ void UART_Init(int bard_rate)
 
 }
 
-void Timer_Init(void)
+static void Timer_Init(void)
 {
     struct TimerCreatePara spitimer = {0};
     spitimer.type = OS_TIMER_SOFTWARE;
@@ -84,18 +92,32 @@ void Timer_Init(void)
     PRT_TimerStart(0, spitmierID);
 }
 
+static void clear_env()
+{
+    PRT_TimerStop(0, spitmierID);
+    PRT_TimerDelete(0, spitmierID);
+    PRT_SemDelete(taskstart_sem);
+    PRT_TaskDelete(g_CtlTskHandel);
+    rpmsg_backend_remove();
+}
+
+static void printw_s(void)
+{
+    int ret;
+    double *W_s = getW_s();
+    char msg[200];
+    ret = sprintf((char *)msg, "W_s:%.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f\n",
+                  W_s[0], W_s[1], W_s[2], W_s[3], W_s[4], W_s[5], W_s[6], W_s[7]);
+    send_message((unsigned char *)msg, ret);
+}
+
 void ControlTaskEntry()
 {
-    int i = 0;
-    int ret;
-    U8 txbuff[4] = {0x00, 0x55, 0xAA, 0xFF};
-    U8 rxbuff[4] = {0};
-    U8 dummy[4] = {0x11, 0x22, 0x33, 0x44};
     U8 tx_buff[BUFF_LEN];
     int16_t AD_CH0, AD_CH1;
     double output = 0;
-    double votlage0;
-    double votlage1;
+    double votlage_ref;
+    double votlage_err;
     double tmp_vol = 0;
 
     UART_Init(BARD_RATE921600);
@@ -105,6 +127,8 @@ void ControlTaskEntry()
     AD7606_Init();
     DAC8563_Init();
 
+    srand((unsigned int)time(NULL));
+
     task_flag = 0;
     while (1)
     {
@@ -112,7 +136,7 @@ void ControlTaskEntry()
         if (task_flag)
         {
             // send_message(tx_buff, ret);
-            if (task_flag > 1)
+/*             if (task_flag > 1)
             {
                 SPI0_Set_CPHA1();
                 tmp_vol = next_sine_sample_static();
@@ -120,20 +144,40 @@ void ControlTaskEntry()
             }
 
             SPI0_Set_CPHA0();
-            ret = AD7606_ReadAllChannels(AD7606_Data);
+            AD7606_ReadAllChannels(AD7606_Data);
             AD_CH0 = (int16_t)((AD7606_Data[0] << 8) | AD7606_Data[1]);
             AD_CH1 = (int16_t)((AD7606_Data[2] << 8) | AD7606_Data[3]);
-            votlage0 = (double)AD_CH0 * 10 / 0x7fff; // Assuming 16-bit ADC and 10.0V reference
-            votlage1 = (double)AD_CH1 * 10 / 0x7fff; // Assuming 16-bit ADC and 10.0V reference
+            votlage_ref = (double)AD_CH0 * 10 / 0x7fff; // Assuming 16-bit ADC and 10.0V reference
+            votlage_err = (double)AD_CH1 * 10 / 0x7fff; // Assuming 16-bit ADC and 10.0V reference
 
             if (task_flag > 2)
             {
-                output = outputget(votlage0, votlage1);
+                output = outputget(votlage_ref, votlage_err);
                 SPI0_Set_CPHA1();
                 DAC8563_SetVoltage(0, (-1.0 * output) + 5.0);
             }
 
-            PRT_Printf("$%.4f %.4f %.4f;", votlage0, votlage1, (-1.0 * output));
+            PRT_Printf("$%.4f %.4f %.4f;", votlage_ref, votlage_err, (-1.0 * output)); */
+
+            if (task_flag > 1)
+            {
+                SPI0_Set_CPHA1();
+                tmp_vol = getrandom_double();
+                DAC8563_SetVoltage(DAC_STIMULATE_CHANNEL, 4 * tmp_vol + 5.0);
+            }
+
+            SPI0_Set_CPHA0();
+            AD7606_ReadAllChannels(AD7606_Data);
+            AD_CH0 = (int16_t)((AD7606_Data[0] << 8) | AD7606_Data[1]);
+            AD_CH1 = (int16_t)((AD7606_Data[2] << 8) | AD7606_Data[3]);
+            votlage_ref = (double)AD_CH0 * 10 / 0x7fff; // Assuming 16-bit ADC and 10.0V reference
+            votlage_err = (double)AD_CH1 * 10 / 0x7fff; // Assuming 16-bit ADC and 10.0V reference
+
+            output = output_s_get(tmp_vol, votlage_err);
+
+            DAC8563_SetVoltage(0, 4.0);
+
+            PRT_Printf("$%.4f %.4f %.4f;", votlage_ref, votlage_err, (-1.0 * output));
         }
     }
 }
@@ -154,7 +198,6 @@ int rec_msg_proc(void *data, int len)
     {
         return -1;
     }
-    // PRT_Printf("rec_msg_proc: id=%d, count=%d, data1=%lf, data2=%lf\n", id, count, data1, data2);
     switch (id)
     {
     case MSG_CONTROL_START:
@@ -171,6 +214,7 @@ int rec_msg_proc(void *data, int len)
         DAC8563_SetVoltage(0, 0.0);
         DAC8563_SetVoltage(1, 0.0);
         task_flag = 0;
+        printw_s();
         break;
     case MSG_CONTROL_EXIT:
         PRT_TimerStop(0, spitmierID);
@@ -191,11 +235,3 @@ int rec_msg_proc(void *data, int len)
     return 0;
 }
 
-void clear_env()
-{
-    PRT_TimerStop(0, spitmierID);
-    PRT_TimerDelete(0, spitmierID);
-    PRT_SemDelete(taskstart_sem);
-    PRT_TaskDelete(g_CtlTskHandel);
-    rpmsg_backend_remove();
-}

@@ -19,6 +19,9 @@ enum TYPE
 #define CONT_Hz 66.02
 #define MSG_FORMAT "%d %d %lf %lf\r\n"
 
+#define DAC_OUTPUT_CHANNEL 0
+#define DAC_STIMULATE_CHANNEL 1
+
 #define BARD_RATE115200 1
 #define BARD_RATE921600 2
 #define UART_IBRD_ADDR               (*(unsigned int *)0xFE201024ULL)
@@ -28,7 +31,7 @@ enum TYPE
 
 void ControlTaskEntry();
 int rec_msg_proc(void *data, int len);
-extern int send_message(unsigned char *message, int len);
+// extern int send_message(unsigned char *message, int len);
 extern void AD7606_Init(void);
 extern void AD7606_StartConversion(void);
 extern int16_t AD7606_ReadChannel(uint8_t channel);

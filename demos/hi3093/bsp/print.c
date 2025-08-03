@@ -64,7 +64,7 @@ void TestPutc(unsigned char ch)
 {
     uart_poll_send(ch);
     if (ch == '\n') {
-        uart_poll_send('\r');
+        // uart_poll_send('\r');
     }
 }
 

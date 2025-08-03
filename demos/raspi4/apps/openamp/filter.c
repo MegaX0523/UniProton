@@ -17,6 +17,7 @@ static int node_index = 0;
 
 /* 滤波器相关全局变量 */
 static double W[LMS_M] = {0};      // 滤波器系数
+double W_s[LMS_M] = {0}; // 次级通道滤波器系数
 static double MU_current = MU_MAX; // 步长参数
 #ifdef VSS_TransX
 static double InputArray[LMS_M]; // 输入缓存
@@ -121,6 +122,16 @@ static void W_Update(StaticDeque *deque, double error)
     // pthread_mutex_unlock(&filter_mutex);
 }
 
+static void W_s_Update(StaticDeque *deque, double error)
+{
+    DequeNode *current = deque->front;
+    for (int i = 0; i < S_PATH_M && current; i++)
+    {
+        W_s[i] += MU_current * error * current->data;
+        current = current->next;
+    }
+}
+
 void W_Reset(void)
 {
     // pthread_mutex_lock(&filter_mutex);
@@ -129,6 +140,18 @@ void W_Reset(void)
         W[i] = 0.0; // 重置滤波器系数
     }
     // pthread_mutex_unlock(&filter_mutex);
+}
+
+void convolution(double *S_path_w, double *input_x, double *output)
+{
+    // 卷积计算核心
+    for (int i = 0; i < S_PATH_M; i++)
+    { // 遍历第一个输入向量
+        for (int j = 0; j < LMS_M; j++)
+        {                                              // 遍历第二个输入向量
+            output[i + j] += S_path_w[i] * input_x[j]; // 累加乘积到对应位置
+        }
+    }
 }
 
 /* 对外接口 Data1-->REF Data2-->ERR*/
@@ -177,6 +200,51 @@ double outputget(double Data1, double Data2)
     return sum;
 }
 
+double output_s_get(double input, double Data2)
+{
+    double sum = 0;
+    int i = 0;
+
+    static StaticDeque INPUT_s = {0};   //给次级通道辨识用的deque
+    static double error = 0.0;
+    static bool initialized = 0;
+
+    // 初始化检查
+    if (!initialized)
+    {
+        static_deque_init(&INPUT_s);
+        initialized = 1;
+    }
+
+    // 更新输入队列
+    if (deque_push_front(&INPUT_s, input) != 0)
+    {
+        return 0; // 错误处理
+    }
+
+    // 计算输出
+    // pthread_mutex_lock(&deque_mutex);
+    DequeNode *current = INPUT_s.front;
+    for (i = 0; i < LMS_M && current; i++)
+    {
+        sum += current->data * W[i];
+        current = current->next;
+    }
+    // pthread_mutex_unlock(&deque_mutex);
+
+    // 更新系数
+    error = Error_Update(Data2, sum);
+    W_s_Update(&INPUT_s, error);
+
+    return sum;
+}
+
+double* getW_s(void)
+{
+    // 返回次级通道滤波器系数
+    return W_s;
+}
+
 void FilterInit(void)
 {
     // 初始化内存池
@@ -193,6 +261,7 @@ void FilterInit(void)
     for (int i = 0; i < LMS_M; i++)
     {
         W[i] = 0;
+        W_s[i] = 0; // 次级通道滤波器系数
     }
     // pthread_mutex_unlock(&filter_mutex);
 

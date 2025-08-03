@@ -58,7 +58,20 @@
 #define GPIO1_INPUT_REG *(volatile uint32_t*)(GPIO1_BASE_ADDR + GPIO_INPUT_OFFSET_ADDR)
 
 void GPIO_INIT(int group, int pin, int mode);
-void GPIO_SET_PIN(int pin);
-void GPIO_CLEAR_PIN(int pin);
+// void GPIO_SET_PIN(int pin);
+// void GPIO_CLEAR_PIN(int pin);
 int GPIO_GETVALUE(int pin);
+
+#define GPIO_SET_PIN(pin)                      \
+    do                                     \
+    {                                      \
+        GPIO1_OUTPUT_REG |= (1U << (pin)); \
+    } while (0)
+
+#define GPIO_CLEAR_PIN(pin)                  \
+    do                                   \
+    {                                    \
+        GPIO1_OUTPUT_REG &= ~(1 << pin); \
+    } while (0)
+
 #endif

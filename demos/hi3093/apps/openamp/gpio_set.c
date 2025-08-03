@@ -24,15 +24,15 @@ void GPIO_INIT(int group, int pin, int mode)
 }
 
 // Function to set GPIO output value
-inline void GPIO_SET_PIN(int pin)
-{
-    GPIO1_OUTPUT_REG |= (1 << pin); // Set the specified pin high
-}
+// void GPIO_SET_PIN(int pin)
+// {
+//     GPIO1_OUTPUT_REG |= (1 << pin); // Set the specified pin high
+// }
 
-inline void GPIO_CLEAR_PIN(int pin)
-{
-    GPIO1_OUTPUT_REG &= ~(1 << pin); // Set the specified pin low
-}
+// inline void GPIO_CLEAR_PIN(int pin)
+// {
+//     GPIO1_OUTPUT_REG &= ~(1 << pin); // Set the specified pin low
+// }
 
 // Function to read GPIO input value
 inline int GPIO_GETVALUE(int pin)
