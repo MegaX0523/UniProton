@@ -200,6 +200,7 @@ static int rpmsg_rx_umt_callback(struct rpmsg_endpoint *ept, void *data,
     umt_msg->data = data;
     umt_msg->len = len;
     msg = (umt_send_msg_t *)umt_msg->data;
+    PRT_Printf("rcv_data_from_nrtos");
 
     if (msg->phy_addr)
         PRT_SemPost(umt_sem);
@@ -227,6 +228,7 @@ static void *rpmsg_umt_task(void *arg)
         PRT_Printf("[openamp] umt endpoint ret:%d \n", ret);
         goto err;
     }
+    PRT_Printf("[openamp] umt ept addr: 0x%x\n", umt_ept.addr);
 err:
     pthread_exit(NULL);
 }
@@ -327,9 +329,9 @@ int rpmsg_service_init(void)
     ret0 = pthread_create(&rpc_thread, &attr, rpmsg_rpc_task, NULL);
     ret1 = pthread_create(&tty_thread, &attr, rpmsg_tty_task, NULL);
     ret2 = pthread_create(&listen_thread, &attr, rpmsg_listen_task, NULL);
-    // ret3 = pthread_create(&umt_thread, &attr, rpmsg_umt_task, NULL);
+    ret3 = pthread_create(&umt_thread, &attr, rpmsg_umt_task, NULL);
     pthread_attr_destroy(&attr);
-    if (ret0 != 0 || ret1 != 0 || ret2 != 0)
+    if (ret0 != 0 || ret1 != 0 || ret2 != 0 || ret3 != 0)
     {
         /* If no rpmsg tasks, release the backend. */
         PRT_Printf("[openamp] create task fail, %d/%d/%d/%d\n", ret0, ret1, ret2, ret3);

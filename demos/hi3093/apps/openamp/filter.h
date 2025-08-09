@@ -1,8 +1,5 @@
 #define X86test // X86测试
 #define VSS_Enable  // 开启变步长
-//#define VSS_TransERR
-#define VSS_TransX
-
 #ifndef FILTER_H
 #define FILTER_H
 
@@ -16,11 +13,6 @@
 #define MAX_DEQUE_SIZE (LMS_M * 2)  // 双倍长度保证滤波器需求
 #define MAX_ERR_SIZE   32           // 错误队列容量
 
-#ifdef VSS_TransX
-#define MAX_MSG_SIZE (sizeof(double) * LMS_M)
-#else
-#define MAX_MSG_SIZE (sizeof(double) * MAX_ERR_SIZE)
-#endif
 
 /* 静态内存池实现的双端队列 */
 typedef struct DequeNode {
@@ -35,8 +27,10 @@ typedef struct {
     int size;
 } StaticDeque;
 
-double outputget(double newx, double dsignal);
 void FilterInit(void);
+double output_get(double ref_signal);
+void W_update(double err_signal);
+
 
 #endif
 
