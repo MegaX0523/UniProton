@@ -10,51 +10,53 @@
 #include "gpio_def.h"
 #include "rpmsg_protocol.h"
 
-volatile double ref_signal = 0;
-volatile double err_signal = 0;
+#define OUTPUT_VOLTAGE_OFFSET 5.0
+
 static U32 spi_timer_id;
 static SemHandle taskstart_sem;
-static int timer_interval = 500;
-uint8_t AD7606_data1[2] = {0x0}; // Buffer to hold AD7606 data
-uint8_t AD7606_data2[2] = {0x0}; // Buffer to hold AD7606 data
-
-static bool state_idle_flag = 0; // ¿ÕÏÐ×´Ì¬
-static bool state_excitation_flag = 0; // ¼¤Àø×´Ì¬
-static bool state_control_flag = 0;
-
 extern TskHandle g_testTskHandle;
 extern TskHandle g_CtlTskHandel;
-extern double *InputArray;
 
-void Timer_Init(void);
-void UART_Init(int bard_rate);
+static int timer_interval = 500;
 
-static void Timer_Func(TimerHandle tmrHandle, U32 arg1, U32 arg2, U32 arg3, U32 arg4)
+static bool state_idle_flag = true;        // ç©ºé—²çŠ¶æ€
+static bool state_excitation_flag = false; // æ¿€åŠ±çŠ¶æ€
+static bool state_control_flag = false;
+static bool state_secondary_path_identify_flag = false;
+
+struct sin_args
+{
+    double phase = 0.0;
+    double excitation_freq = 66.07;
+} sin_arg;
+
+void timer_init(void);
+
+static void timer_callback(TimerHandle tmrHandle, U32 arg1, U32 arg2, U32 arg3, U32 arg4)
 {
     PRT_SemPost(taskstart_sem);
     return;
 }
 
-static double next_sine_sample_static(void)
+static double get_sin_value(void)
 {
-    static double phase = 0.0;
-    double value = sin(phase);
-    phase += 2 * PI * CONT_Hz / timer_interval;
-    while (phase >= 2 * PI)
+    double value = sin(sin_arg.phase);
+    sin_arg.phase += 2 * PI * sin_arg.excitation_freq / timer_interval;
+    while (sin_arg.phase >= 2 * PI)
     {
-        phase -= 2 * PI;
+        sin_arg.phase -= 2 * PI;
     }
     return value;
 }
 
-void Timer_Init(void)
+void timer_init(void)
 {
     struct TimerCreatePara spi_timer = {0};
     spi_timer.type = OS_TIMER_SOFTWARE;
     spi_timer.mode = OS_TIMER_LOOP;
     spi_timer.interval = 500;
     spi_timer.timerGroupId = 0;
-    spi_timer.callBackFunc = Timer_Func;
+    spi_timer.callBackFunc = timer_callback;
     spi_timer.arg1 = 0;
 
     PRT_SemCreate(0, &taskstart_sem);
@@ -64,53 +66,76 @@ void Timer_Init(void)
 
 void ControlTaskEntry()
 {
-    int i = 0;
-    int ret;
-    U8 txbuff[4] = {0x00, 0x55, 0xAA, 0xFF};
-    U8 rxbuff[4] = {0};
-    U8 dummy[4] = {0x11, 0x22, 0x33, 0x44};
-    U8 tx_buff[BUFF_LEN];
-    int16_t AD_CH0, AD_CH1;
-    double output = 0;
-    double votlage0 = 0;
-    double votlage1 = 0;
-    double tmp_vol = 0;
-
-    Timer_Init();
-    FilterInit();
-    SPI0_Init();
-    AD7606_Init();
-    DAC8563_Init();
+    timer_init();
+    filter_init();
+    spi0_init();
+    ad7606_init();
+    dac8563_init();
 
     while (1)
     {
         PRT_SemPend(taskstart_sem, OS_WAIT_FOREVER);
+
         if (state_idle_flag)
         {
-            if (state_excitation_flag)
-            {
-                static double i = 0;
-                i += 0.1;
-                tmp_vol = next_sine_sample_static();
-                DAC8563_SetVoltage(EXCITATION_CHANNEL, i);
-            }
-
-            AD7606_read_channel_1(AD7606_data1);
-            AD_CH0 = (int16_t)((AD7606_data1[0] << 8) | AD7606_data1[1]);
-            votlage0 = (double)AD_CH0 * 10 / 0x7fff;
-
-            if (state_control_flag)
-            {
-                output = output_get(votlage0);
-                DAC8563_SetVoltage(CONTROL_CHANNEL, output + 5.0);
-
-                AD7606_read_channel_2(AD7606_data2);
-                AD_CH1 = (int16_t)((AD7606_data2[0] << 8) | AD7606_data2[1]);
-                votlage1 = (double)AD_CH1 * 10 / 0x7fff;
-                W_update(votlage1);
-            }
+            vibration_control();
+        }
+        else if (state_secondary_path_identify_flag)
+        {
+            secondary_path_identify();
         }
     }
+}
+
+void vibration_control()
+{
+    double ref_signal = 0;
+    double err_signal = 0;
+    double exc_signal = 0;
+    double output_signal = 0;
+    int16_t ad_ch0_value, ad_ch1_value;
+    uint8_t ad7606_buffer[2] = {0x0};
+
+    // æ–½åŠ æ¿€åŠ±
+    if (state_excitation_flag)
+    {
+        exc_signal = get_sin_value();
+        DAC8563_SetVoltage(EXCITATION_CHANNEL, exc_signal + OUTPUT_VOLTAGE_OFFSET);
+    }
+
+    // èŽ·å–å‚è€ƒä¿¡å·
+    AD7606_read_channel_1(ad7606_buffer);
+    ad_ch0_value = (int16_t)((ad7606_buffer[0] << 8) | ad7606_buffer[1]);
+    ref_signal = (double)ad_ch0_value * 10 / 0x7fff;
+
+    // è¾“å‡ºæŽ§åˆ¶ä¿¡å·
+    if (state_control_flag)
+    {
+        output_signal = output_get(ref_signal);
+        DAC8563_SetVoltage(CONTROL_CHANNEL, output_signal + OUTPUT_VOLTAGE_OFFSET);
+
+        AD7606_read_channel_2(ad7606_buffer);
+        ad_ch1_value = (int16_t)((ad7606_buffer[0] << 8) | ad7606_buffer[1]);
+        err_signal = (double)ad_ch1_value * 10 / 0x7fff;
+        weight_update(err_signal);
+    }
+}
+
+void secondary_path_identify()
+{
+    double exc_signal;
+    double err_signal;
+    int16_t ad_ch1_value;
+    uint8_t ad7606_buffer[2] = {0x0};
+
+    exc_signal = get_sin_value();
+    DAC8563_SetVoltage(CONTROL_CHANNEL, exc_signal); // æ¬¡çº§é€šé“è¾¨è¯†æŠŠæ¿€åŠ±ä¿¡å·å‘æŽ§åˆ¶ä½œåŠ¨å™¨
+    update_input_deque_only(exc_signal);
+
+    AD7606_read_channel_2(ad7606_buffer);
+    ad_ch1_value = (int16_t)((ad7606_buffer[0] << 8) | ad7606_buffer[1]);
+    err_signal = (double)ad_ch1_value * 10 / 0x7fff;
+    weight_sec_p_update(err_signal);
 }
 
 int rec_msg_proc(void *data, int len)
@@ -118,14 +143,11 @@ int rec_msg_proc(void *data, int len)
     static int array[200];
     rpmsg_packet *packet = (rpmsg_packet *)data;
 
-    // ½âÎöÊý¾Ý°ü£¨×¢Òâ±ß½ç¼ì²é£©
-    // 1. ¼ì²é×îÐ¡³¤¶È£¨ÏûÏ¢ÀàÐÍ£©
     if (len < sizeof(uint16_t))
     {
         PRT_Printf("Invalid packet: too short");
         return -1;
     }
-    // 2. ½âÎöÏûÏ¢ÀàÐÍ
     switch (packet->msg_type)
     {
     case MSG_COMMAND:
@@ -133,14 +155,29 @@ int rec_msg_proc(void *data, int len)
         {
             switch (packet->payload.command)
             {
-            case START_EXCITATION:
+            case START_EXCITATION: // å¼€å§‹æ¿€åŠ±
                 PRT_Printf("Received command: START_EXCITATION\n");
-                state_excitation_flag = 1; // ¿ªÊ¼¼¤Àø
+                DAC8563_SetVoltage(EXCITATION_CHANNEL, OUTPUT_VOLTAGE_OFFSET);
+                DAC8563_SetVoltage(CONTROL_CHANNEL, OUTPUT_VOLTAGE_OFFSET);
+                state_excitation_flag = 1;
                 break;
-            case STOP_EXCITATION:
+            case STOP_EXCITATION: // åœæ­¢æ¿€åŠ±
                 PRT_Printf("Received command: STOP_EXCITATION\n");
-                state_excitation_flag = 0; // Í£Ö¹¼¤Àø
+                state_excitation_flag = 0;
+                state_control_flag = 0;
+                DAC8563_SetVoltage(EXCITATION_CHANNEL, 0);
+                DAC8563_SetVoltage(CONTROL_CHANNEL, 0);
                 break;
+            case START_CONTROL: // å¼€å§‹æŽ§åˆ¶
+                PRT_Printf("Received command: START_CONTROL\n");
+                if (state_excitation_flag == 1)
+                {
+                    state_control_flag = 1;
+                }
+            case STOP_CONTROL: //  åœæ­¢æŽ§åˆ¶
+                PRT_Printf("Received command: STOP_CONTROL\n");
+                state_control_flag = 0;
+                DAC8563_SetVoltage(CONTROL_CHANNEL, 0);
             case START_DAMPING:
                 PRT_Printf("Sending array.\n", packet->payload.command);
 
@@ -148,7 +185,7 @@ int rec_msg_proc(void *data, int len)
                     .msg_type = MSG_SENSOR_ARRAY};
                 for (uint16_t i = 0; i < SENSOR_ARRAY_SIZE; i++)
                 {
-                    pkt.payload.array[i] = i * 2 + 3; // Ê¾ÀýÊý¾Ý
+                    pkt.payload.array[i] = i * 2 + 3; // ç¤ºä¾‹æ•°æ®
                     if ((pkt.payload.array[i] & 0xFF00) == 0x0A00)
                     {
                         pkt.payload.array[i] = i - 1;
@@ -176,6 +213,13 @@ int rec_msg_proc(void *data, int len)
                        packet->payload.param.param_id,
                        packet->payload.param.param_value,
                        len);
+            if (packet->payload.param.param_id == PARAM_FREQUENCY)
+            {
+                PRT_TimerStop(0, spi_timer_id);
+                sin_arg.phase = 0;
+                sin_arg.excitation_freq = packet->payload.param.param_value;
+                PRT_TimerStart(0, spi_timer_id);
+            }
         }
         break;
     default:
