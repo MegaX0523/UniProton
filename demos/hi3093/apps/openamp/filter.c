@@ -4,15 +4,18 @@ static void static_deque_init(StaticDeque *deque);
 static DequeNode *static_node_alloc(double data);
 static int deque_push_front(StaticDeque *deque, double data);
 
-static DequeNode node_pool[MAX_DEQUE_SIZE];
+
+
 static int node_index = 0;
-static double W[LMS_M] = {0};      // 滤波器系数
-static double W_sec[LMS_M] = {0};  // 次级通道参数
-static double MU_current = MU_MAX; // 步长参数
+static double weight[LMS_M] = {0};      // 滤波器系数
+static double weight_sec_p[LMS_M] = {0};  // 次级通道参数
+static double mu = MU_MAX; // 步长参数
 
-static StaticDeque LMS_Deque = {0};
+static DequeNode node_pool[MAX_DEQUE_SIZE];
+static StaticDeque lms_deque = {0};
+static StaticDeque spi_deque = {0};
 
-void FilterInit(void)
+void filter_init(void)
 {
     node_index = 0;
     for (int i = 0; i < MAX_DEQUE_SIZE; i++)
@@ -23,11 +26,11 @@ void FilterInit(void)
     }
     for (int i = 0; i < LMS_M; i++)
     {
-        W[i] = 0;
+        weight[i] = 0;
     }
     for (int i = 0; i < LMS_M; i++)
     {
-        W_sec[i] = 0;
+        weight_sec_p[i] = 0;
     }
 }
 
@@ -50,70 +53,94 @@ static DequeNode *static_node_alloc(double data)
     return node;
 }
 
-static int deque_push_front(StaticDeque *deque, double data)
+static void deque_push_front(StaticDeque *deque, double data)
 {
+    DequeNode *node = static_node_alloc(data);
+
     if (deque->size >= LMS_M)
     {
         DequeNode *old = deque->rear;
-        if (deque->size > 1)
-        {
-            deque->rear = old->prev;
-            deque->rear->next = NULL;
-        }
-        else
-        {
-            deque->front = deque->rear = NULL;
-        }
+        deque->rear = old->prev;
+        deque->rear->next = NULL;
         deque->size--;
     }
-    DequeNode *node = static_node_alloc(data);
-    if (!node)
-    {
-        return -1;
-    }
-    if (deque->size == 0)
+    else if (deque->size == 0)  // 仅在刚初始化后执行
     {
         deque->front = deque->rear = node;
+        deque->size = 1;
+        return;
     }
-    else
-    {
-        node->next = deque->front;
-        deque->front->prev = node;
-        deque->front = node;
-    }
+
+    node->next = deque->front;
+    deque->front->prev = node;
+    deque->front = node;
     deque->size++;
-    return 0;
 }
 
-void W_update(double err_signal)
+void weight_update(double err_signal)
 {
-    DequeNode *current = LMS_Deque.front;
+    DequeNode *current = lms_deque.front;
     for (int i = 0; i < LMS_M && current; i++)
     {
-        W[i] += MU_current * err_signal * current->data;
+        weight[i] += mu * err_signal * current->data;
+        current = current->next;
+    }
+}
+
+void weight_sec_p_update(double err_signal)
+{
+    double norm = 1e-8;
+    DequeNode *current = spi_deque.front;
+    for (int i = 0; i < LMS_M && current; i++)
+    {
+        norm += current->data * current->data;
+    }
+
+    for (int i = 0; i < LMS_M && current; i++)
+    {
+        norm = current->data * current->data;
+        weight_sec_p[i] += (mu / norm) * err_signal * current->data;
         current = current->next;
     }
 }
 
 double output_get(double ref_signal)
 {
+    double sum = 0;
+    double ref_filtered_signal = 0;
     static bool initialized = 0;
+    DequeNode *current;
     if (!initialized)
     {
-        static_deque_init(&LMS_Deque);
+        static_deque_init(&lms_deque);
         initialized = 1;
     }
-    double sum = 0;
-    int i = 0;
-    if (deque_push_front(&LMS_Deque, ref_signal) != 0)
+    
+    current = lms_deque.front;
+    for (int i = 0; i < LMS_M && current; i++)
     {
-        return 0; // 错误处理
+        ref_filtered_signal += W_sec[i] * current.data[i];
+        current = current->next;
     }
-    DequeNode *current = LMS_Deque.front;
-    for (i = 0; i < LMS_M && current; i++)
+    deque_push_front(&lms_deque, ref_filtered_signal);
+
+    current = lms_deque.front;
+    for (int i = 0; i < LMS_M && current; i++)
     {
         sum += current->data * W[i];
         current = current->next;
     }
     return sum;
+}
+
+void update_input_deque_only(double exc_signal)
+{
+    static bool initialized = 0;
+    if (!initialized)
+    {
+        static_deque_init(&spi_deque);
+        initialized = 1;
+    }
+
+    deque_push_front(&spi_deque, exc_signal)
 }
